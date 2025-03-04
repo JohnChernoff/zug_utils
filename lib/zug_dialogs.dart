@@ -41,6 +41,7 @@ class ZugDialogs {
     if (ctx == null) return false;
     dialog = true;
     return showDialog(
+        barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
           return Center(
