@@ -1,7 +1,7 @@
 name: zug_utils
 description: "Zug Utilities"
-version: 0.0.1
-homepage:
+version: 0.0.2
+homepage: www.john-chernoff.com
 
 environment:
   sdk: ^3.5.2
@@ -26,7 +26,7 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
-flutter:
+#flutter:
 
   # To add assets to your package, add an assets section, like this:
   # assets:
