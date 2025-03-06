@@ -78,7 +78,7 @@ class ZugDialogs {
     });
   }
 
-  static Future<bool> confirm(String txt, ValueNotifier<bool?> canceller, { String imgFile = "" } ) async {
+  static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
     currentContexts.add(ctx);
@@ -86,8 +86,9 @@ class ZugDialogs {
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
+          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile);
           return Center(
-              child: CancellableDialog(ConfirmDialog(txt, imageFilename: imgFile),canceller));
+              child: canceller != null ? CancellableDialog(dialog,canceller) : dialog);
         }).then((ok)  {
       return ok ?? false;
     });
