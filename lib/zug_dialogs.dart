@@ -1,7 +1,7 @@
 import 'dart:collection';
 import 'package:flutter/material.dart';
 
-class DialogListener<T extends Listenable> extends StatefulWidget {
+class DialogListener<T> extends StatefulWidget {
   const DialogListener({
     required this.builder,
     required this.listenable,
@@ -9,27 +9,32 @@ class DialogListener<T extends Listenable> extends StatefulWidget {
     super.key,
   });
 
-  final Listenable listenable;
-  final VoidCallback listener;
+  final ValueNotifier<T> listenable;
+  final void Function(T previous, T next) listener;
   final WidgetBuilder builder;
 
   @override
-  State<DialogListener> createState() => _DialogListenerState();
+  State<DialogListener<T>> createState() => _DialogListenerState<T>();
 }
 
-class _DialogListenerState extends State<DialogListener> {
+class _DialogListenerState<S> extends State<DialogListener<S>> {
+  late S previous;
   @override
   void initState() {
     super.initState();
-    widget.listenable.addListener(widget.listener);
+    previous = widget.listenable.value;
+    widget.listenable.addListener(listener);
   }
-
+  void listener() {
+    final value = widget.listenable.value;
+    widget.listener(previous, value);
+    previous = value;
+  }
   @override
   void dispose() {
-    widget.listenable.removeListener(widget.listener);
+    widget.listenable.removeListener(listener);
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return widget.builder(context);
@@ -73,7 +78,7 @@ class ZugDialogs {
     });
   }
 
-  static Future<bool> confirm(String txt, ValueNotifier<void> canceller, { String imgFile = "" } ) async {
+  static Future<bool> confirm(String txt, ValueNotifier<bool?> canceller, { String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
     currentContexts.add(ctx);
@@ -258,15 +263,17 @@ class TextDialog extends StatelessWidget {
 }
 
 class CancellableDialog extends StatelessWidget {
-  final ValueNotifier<void> canceller;
+  final ValueNotifier<bool?> canceller;
   final Widget dialog;
   const CancellableDialog(this.dialog, this.canceller, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return DialogListener(
+    return DialogListener<bool?>(
         listenable: canceller,
-        listener: () => ZugDialogs.popDialog(context),
+        listener: (before,after) {
+          if (before == null && after != null) ZugDialogs.popDialog(context);
+        },
         builder: (context) => dialog
     );
   }
