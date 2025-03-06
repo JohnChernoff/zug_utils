@@ -1,11 +1,45 @@
 import 'dart:collection';
 import 'package:flutter/material.dart';
 
+class DialogListener<T extends Listenable> extends StatefulWidget {
+  const DialogListener({
+    required this.builder,
+    required this.listenable,
+    required this.listener,
+    super.key,
+  });
+
+  final Listenable listenable;
+  final VoidCallback listener;
+  final WidgetBuilder builder;
+
+  @override
+  State<DialogListener> createState() => _DialogListenerState();
+}
+
+class _DialogListenerState extends State<DialogListener> {
+  @override
+  void initState() {
+    super.initState();
+    widget.listenable.addListener(widget.listener);
+  }
+
+  @override
+  void dispose() {
+    widget.listenable.removeListener(widget.listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context);
+  }
+}
+
 class ZugDialogs {
 
   static GlobalKey<NavigatorState>? _navigatorKey;
-  static Set<BuildContext> contexts = HashSet();
-  static bool dialog = false;
+  static Set<BuildContext> currentContexts = HashSet();
 
   ZugDialogs();
 
@@ -13,41 +47,43 @@ class ZugDialogs {
     _navigatorKey = key;
   }
 
+  static void popDialog<T extends Object>(BuildContext ctx, [T? result]) {
+    Navigator.pop(ctx,result);
+    currentContexts.remove(ctx);
+  }
+
   static void clearDialogs() {
-    for (BuildContext ctx in ZugDialogs.contexts) {
-      Navigator.pop(ctx);
+    for (BuildContext ctx in ZugDialogs.currentContexts) {
+      popDialog(ctx);
     }
-    ZugDialogs.contexts.clear();
-    dialog = false;
+    ZugDialogs.currentContexts.clear(); //shouldn't be necessary
   }
 
   static Future<bool> popup(String txt, { String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
-    dialog = true;
+    currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Center(
               child: NotificationDialog(txt, imageFilename: imgFile));
         }).then((ok)  {
-      dialog = false;
       return ok ?? false;
     });
   }
 
-  static Future<bool> confirm(String txt, { String imgFile = "" } ) async {
+  static Future<bool> confirm(String txt, ValueNotifier<void> canceller, { String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
-    dialog = true;
+    currentContexts.add(ctx);
     return showDialog(
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
           return Center(
-              child: ConfirmDialog(txt, imageFilename: imgFile));
+              child: ConfirmDialog(txt, canceller, imageFilename: imgFile));
         }).then((ok)  {
-      dialog = false;
       return ok ?? false;
     });
   }
@@ -55,13 +91,12 @@ class ZugDialogs {
   static Future<dynamic> getValue(ValueDialog valueDialog) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    dialog = true;
+    currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Center(child: valueDialog);
         }).then((value) {
-      dialog = false;
       return value ?? "";
     });
   }
@@ -69,13 +104,12 @@ class ZugDialogs {
   static Future<String> getString(String prompt,String defTxt) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    dialog = true;
+    ZugDialogs.currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Center(child: TextDialog(prompt, defTxt));
         }).then((value) {
-      dialog = false;
       return value ?? "";
     });
   }
@@ -83,13 +117,12 @@ class ZugDialogs {
   static Future<int> getIcon(String prompt, List<Icon> iconList) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    dialog = true; contexts.add(ctx); //TODO: does this do anything?
+    currentContexts.add(ctx); //TODO: does this do anything?
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Center(child: IconSelectDialog(prompt, iconList));
         }).then((value) {
-      dialog = false; contexts.remove(ctx);
       return value ?? 0;
     });
   }
@@ -97,13 +130,12 @@ class ZugDialogs {
   static Future<dynamic> getItem(String prompt, List<dynamic> itemList, List<String> fieldList, String actionString, {double sizeFactor = 1} ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    dialog = true; contexts.add(ctx);
+    currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Center(child: ItemSelectDialog(itemList,fieldList, actionString, sizeFactor: sizeFactor));
         }).then((item) {
-      dialog = false; contexts.remove(ctx);
       return item ?? {};
     });
   }
@@ -112,7 +144,7 @@ class ZugDialogs {
       {bool showTime = false, int seconds = 0, Offset sizeFactor = const Offset(1,1), Alignment alignment = Alignment.center, Color color = Colors.white, Color backgroundColor = Colors.black}) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return null;
-    ZugDialogs.dialog = true; ZugDialogs.contexts.add(ctx);
+    ZugDialogs.currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -120,7 +152,6 @@ class ZugDialogs {
               alignment: alignment,
               child: WidgetSelectDialog(prompt,widgetList, axisCount, showTime: showTime, seconds: seconds, sizeFactor: sizeFactor, color: color, backgroundColor: backgroundColor));
         }).then((widget) {
-      ZugDialogs.dialog = false; ZugDialogs.contexts.remove(ctx);
       return widget;
     });
   }
@@ -128,13 +159,12 @@ class ZugDialogs {
   static Future<void> showAnimationDialog (AnimationDialog dial, {Alignment alignment = Alignment.center}) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    dialog = true;
+    ZugDialogs.currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return Align(alignment: alignment, child: dial);
         }).then((ok)  {
-      dialog = false;
       return Future(() => null);
     });
   }
@@ -142,13 +172,12 @@ class ZugDialogs {
   static Future<void> showClickableDialog(Widget widget) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    dialog = true;
+    ZugDialogs.currentContexts.add(ctx);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
           return ClickableDialog(widget);
         }).then((ok)  {
-      dialog = false;
       return Future(() => null);
     });
   }
@@ -228,13 +257,30 @@ class TextDialog extends StatelessWidget {
   }
 }
 
-class ConfirmDialog extends StatelessWidget {
-  final String txt;
-  final String imageFilename;
-  const ConfirmDialog(this.txt, {this.imageFilename = "", super.key});
+abstract class CancellableDialog extends StatelessWidget {
+  final ValueNotifier<void> canceller;
+  const CancellableDialog(this.canceller, {super.key});
 
   @override
   Widget build(BuildContext context) {
+    return DialogListener(
+        listenable: canceller,
+        listener: () => ZugDialogs.popDialog(context),
+        builder: (context) => getDialog(context)
+    );
+  }
+
+  Widget getDialog(BuildContext context);
+
+}
+
+class ConfirmDialog extends CancellableDialog {
+  final String txt;
+  final String imageFilename;
+  const ConfirmDialog(this.txt, super.canceller, {this.imageFilename = "", super.key});
+
+  @override
+  Widget getDialog(BuildContext context) {
     return SimpleDialog(
       children: [
         imageFilename.isEmpty
@@ -242,13 +288,13 @@ class ConfirmDialog extends StatelessWidget {
             : Image.asset("assets/images/$imageFilename"),
         Center(child: Text(txt)),
         SimpleDialogOption(
-            onPressed: () { //print("True");
-              Navigator.pop(context,true);
+            onPressed: () {
+              ZugDialogs.popDialog(context, true);
             },
             child: const Text('OK')),
         SimpleDialogOption(
             onPressed: () {
-              Navigator.pop(context,false);
+              ZugDialogs.popDialog(context, false);
             },
             child: const Text('Cancel')),
       ],
