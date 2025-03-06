@@ -82,7 +82,7 @@ class ZugDialogs {
         context: ctx,
         builder: (BuildContext context) {
           return Center(
-              child: ConfirmDialog(txt, canceller, imageFilename: imgFile));
+              child: CancellableDialog(ConfirmDialog(txt, imageFilename: imgFile),canceller));
         }).then((ok)  {
       return ok ?? false;
     });
@@ -257,30 +257,28 @@ class TextDialog extends StatelessWidget {
   }
 }
 
-abstract class CancellableDialog extends StatelessWidget {
+class CancellableDialog extends StatelessWidget {
   final ValueNotifier<void> canceller;
-  const CancellableDialog(this.canceller, {super.key});
+  final Widget dialog;
+  const CancellableDialog(this.dialog, this.canceller, {super.key});
 
   @override
   Widget build(BuildContext context) {
     return DialogListener(
         listenable: canceller,
         listener: () => ZugDialogs.popDialog(context),
-        builder: (context) => getDialog(context)
+        builder: (context) => dialog
     );
   }
-
-  Widget getDialog(BuildContext context);
-
 }
 
-class ConfirmDialog extends CancellableDialog {
+class ConfirmDialog extends StatelessWidget {
   final String txt;
   final String imageFilename;
-  const ConfirmDialog(this.txt, super.canceller, {this.imageFilename = "", super.key});
+  const ConfirmDialog(this.txt, {this.imageFilename = "", super.key});
 
   @override
-  Widget getDialog(BuildContext context) {
+  Widget build(BuildContext context) {
     return SimpleDialog(
       children: [
         imageFilename.isEmpty
