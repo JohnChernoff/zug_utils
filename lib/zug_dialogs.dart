@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'package:flutter/material.dart';
 
 class DialogListener<T> extends StatefulWidget {
@@ -44,7 +43,7 @@ class _DialogListenerState<S> extends State<DialogListener<S>> {
 class ZugDialogs {
 
   static GlobalKey<NavigatorState>? _navigatorKey;
-  static Set<BuildContext> currentContexts = HashSet();
+  static List<UniqueKey> currentDialogs = [];
 
   ZugDialogs();
 
@@ -52,22 +51,15 @@ class ZugDialogs {
     _navigatorKey = key;
   }
 
-  static void popDialog<T extends Object>(BuildContext ctx, [T? result]) {
-    Navigator.pop(ctx,result);
-    currentContexts.remove(ctx);
-  }
-
-  static void clearDialogs() {
-    for (BuildContext ctx in ZugDialogs.currentContexts) {
-      popDialog(ctx);
-    }
-    ZugDialogs.currentContexts.clear(); //shouldn't be necessary
+  static void popDialog<T extends Object>(BuildContext ctx, Key? key, [T? result]) {
+    Navigator.of(ctx).pop(result);
+    currentDialogs.remove(key);
   }
 
   static Future<bool> popup(String txt, { String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
-    currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -81,12 +73,12 @@ class ZugDialogs {
   static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
-    currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
-          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile);
+          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, key: key);
           return Center(
               child: canceller != null ? CancellableDialog(dialog,canceller) : dialog);
         }).then((ok)  {
@@ -97,7 +89,7 @@ class ZugDialogs {
   static Future<dynamic> getValue(ValueDialog valueDialog) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -110,7 +102,7 @@ class ZugDialogs {
   static Future<String> getString(String prompt,String defTxt) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    ZugDialogs.currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -123,7 +115,7 @@ class ZugDialogs {
   static Future<int> getIcon(String prompt, List<Icon> iconList) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    currentContexts.add(ctx); //TODO: does this do anything?
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -136,7 +128,7 @@ class ZugDialogs {
   static Future<dynamic> getItem(String prompt, List<dynamic> itemList, List<String> fieldList, String actionString, {double sizeFactor = 1} ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -150,7 +142,7 @@ class ZugDialogs {
       {bool showTime = false, int seconds = 0, Offset sizeFactor = const Offset(1,1), Alignment alignment = Alignment.center, Color color = Colors.white, Color backgroundColor = Colors.black}) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return null;
-    ZugDialogs.currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -165,7 +157,7 @@ class ZugDialogs {
   static Future<void> showAnimationDialog (AnimationDialog dial, {Alignment alignment = Alignment.center}) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    ZugDialogs.currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -178,7 +170,7 @@ class ZugDialogs {
   static Future<void> showClickableDialog(Widget widget) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    ZugDialogs.currentContexts.add(ctx);
+    UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -263,19 +255,31 @@ class TextDialog extends StatelessWidget {
   }
 }
 
-class CancellableDialog extends StatelessWidget {
+class CancellableDialog extends StatefulWidget {
   final ValueNotifier<bool?> canceller;
   final Widget dialog;
   const CancellableDialog(this.dialog, this.canceller, {super.key});
 
   @override
+  State<StatefulWidget> createState() => _CancellableDialogState();
+}
+
+class _CancellableDialogState extends State<CancellableDialog> {
+
+  @override
   Widget build(BuildContext context) {
     return DialogListener<bool?>(
-        listenable: canceller,
-        listener: (before,after) {
-          if (before == null && after != null) ZugDialogs.popDialog(context);
+        listenable: widget.canceller,
+        listener: (before, after) {
+          print("Cancelling?");
+          print(ZugDialogs.currentDialogs);
+          print(widget.dialog.key);
+          if (ZugDialogs.currentDialogs.contains(widget.dialog.key) && before == null && after != null) {
+            print("Cancelling dialog....");
+            ZugDialogs.popDialog(context,widget.key);
+          }
         },
-        builder: (context) => dialog
+        builder: (context) => widget.dialog
     );
   }
 }
@@ -295,12 +299,14 @@ class ConfirmDialog extends StatelessWidget {
         Center(child: Text(txt)),
         SimpleDialogOption(
             onPressed: () {
-              ZugDialogs.popDialog(context, true);
+              print("OK dialog option....");
+              ZugDialogs.popDialog(context, key, true);
             },
             child: const Text('OK')),
         SimpleDialogOption(
             onPressed: () {
-              ZugDialogs.popDialog(context, false);
+              print("Cancel dialog option....");
+              ZugDialogs.popDialog(context, key, false);
             },
             child: const Text('Cancel')),
       ],
