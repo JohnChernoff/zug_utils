@@ -135,6 +135,30 @@ class ZugUtils {
     return tileSize;
   }
 
+  static int getMaxSizeOfSpacedSquaresInRect(double width, double height, int tileCount, double spacing) {
+    if (width * height < tileCount) {
+      return 0;
+    }
+
+    // Assume grid with x columns and y rows:
+    // Total width used: x * tileSize + (x - 1) * spacing <= width
+    // Total height used: y * tileSize + (y - 1) * spacing <= height
+    // with y = ceil(tileCount / x)
+
+    int bestTileSize = 0;
+    for (int cols = 1; cols <= tileCount; cols++) {
+      int rows = (tileCount / cols).ceil();
+      double tileWidth = (width - (cols - 1) * spacing) / cols;
+      double tileHeight = (height - (rows - 1) * spacing) / rows;
+      int tileSize = tileWidth.floor().clamp(0, tileHeight.floor());
+      if (tileSize > bestTileSize) {
+        bestTileSize = tileSize;
+      }
+    }
+
+    return bestTileSize;
+  }
+
   static Future<ui.Image> imageToUI(Image image) {
     Completer<ui.Image> completer = Completer<ui.Image>();
     image.image
