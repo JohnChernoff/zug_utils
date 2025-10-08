@@ -13,10 +13,10 @@ dependencies:
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.1
   webview_flutter: ^4.4.2
-  flutter:
-    sdk: flutter
   image: ^4.2.0
   logger: ^2.4.0
+  flutter:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -59,3 +59,8 @@ dev_dependencies:
   #
   # For details regarding fonts in packages, see
   # https://flutter.dev/to/font-from-package
+
+flutter:
+  assets:
+    - lib/assets/js/sonification.js
+    - lib/assets/js/vendor/WebAudioFontPlayer.js
