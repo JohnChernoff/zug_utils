@@ -70,7 +70,7 @@ class ZugDialogs {
     });
   }
 
-  static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, String imgFile = "" } ) async {
+  static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, String? confirmStr, String? cancelStr, String? imgFile } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
     UniqueKey key = UniqueKey(); currentDialogs.add(key);
@@ -78,7 +78,7 @@ class ZugDialogs {
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
-          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, key: key);
+          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, confirmStr: confirmStr, cancelStr: cancelStr, key: key);
           return Center(
               child: canceller != null ? CancellableDialog(dialog,canceller) : dialog);
         }).then((ok)  {
@@ -271,11 +271,11 @@ class _CancellableDialogState extends State<CancellableDialog> {
     return DialogListener<bool?>(
         listenable: widget.canceller,
         listener: (before, after) {
-          print("Cancelling?");
-          print(ZugDialogs.currentDialogs);
-          print(widget.dialog.key);
+          //print("Cancelling?");
+          //print(ZugDialogs.currentDialogs);
+          //print(widget.dialog.key);
           if (ZugDialogs.currentDialogs.contains(widget.dialog.key) && before == null && after != null) {
-            print("Cancelling dialog....");
+            //print("Cancelling dialog....");
             ZugDialogs.popDialog(context,widget.key);
           }
         },
@@ -286,29 +286,29 @@ class _CancellableDialogState extends State<CancellableDialog> {
 
 class ConfirmDialog extends StatelessWidget {
   final String txt;
-  final String imageFilename;
-  const ConfirmDialog(this.txt, {this.imageFilename = "", super.key});
+  final String? imageFilename;
+  final String? confirmStr;
+  final String? cancelStr;
+  const ConfirmDialog(this.txt, {this.imageFilename, this.confirmStr, this.cancelStr, super.key});
 
   @override
   Widget build(BuildContext context) {
     return SimpleDialog(
       children: [
-        imageFilename.isEmpty
+        imageFilename == null
             ? const SizedBox.shrink()
             : Image.asset("assets/images/$imageFilename"),
         Center(child: Text(txt)),
         SimpleDialogOption(
-            onPressed: () {
-              print("OK dialog option....");
+            onPressed: () { //print("OK dialog option....");
               ZugDialogs.popDialog(context, key, true);
             },
-            child: const Text('OK')),
+            child: Text(confirmStr ?? 'OK')),
         SimpleDialogOption(
-            onPressed: () {
-              print("Cancel dialog option....");
+            onPressed: () { //print("Cancel dialog option....");
               ZugDialogs.popDialog(context, key, false);
             },
-            child: const Text('Cancel')),
+            child: Text(cancelStr ?? 'Cancel')),
       ],
     );
   }
@@ -427,6 +427,7 @@ abstract class TimedDialog extends StatefulWidget {
   final int framerate;
   bool timeOut = false;
   Future<dynamic>? countThread;
+
   TimedDialog(this.milliseconds,this.showTime, {this.framerate = 1000, super.key});
 
   void cancel() {
