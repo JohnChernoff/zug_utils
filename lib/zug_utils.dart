@@ -178,6 +178,24 @@ class ZugUtils {
     return uImageToImgPkg(await imageToUI(image));
   }
 
+  static Widget buttonImg(String name, {String? buttDir,double? width = 200, double? height = 100, glow = false, disabled = false,
+  path = "assets/imgs/buttons", imgType = "png"}) =>
+      Container(color: Colors.transparent, width: width, height: height, child: Image(
+          color: disabled ? Colors.grey : glow ? Colors.yellowAccent : Colors.white,
+          colorBlendMode: BlendMode.modulate,
+          image: buttDir != null
+            ? AssetImage("assets/imgs/buttons/$buttDir/$name.$imgType")
+            : AssetImage("assets/imgs/buttons/$name.$imgType")
+      ));
+
+  static Widget buttonCmd(String name, VoidCallback? onTap, {glow = false, disabled = false, VoidCallback? onDoubleTap,
+    String? dir, path = "assets/imgs/buttons", imgType = "png", double? width, double? height}) =>
+      InkWell(
+        onTap: disabled ? null : onTap,
+        onDoubleTap: disabled ? null : onDoubleTap,
+        child: buttonImg(name, buttDir: dir, path: path, imgType: imgType, width: width, height: height, glow: glow, disabled: disabled),
+      );
+
 }
 
 mixin Timerable {
@@ -271,11 +289,9 @@ extension HexColor on Color {
           Random().nextInt(128) + 128, 1.0);
     }
     else {
-      return Color((Random().nextDouble() * 0xFFFFFF).toInt()).withOpacity(1.0);
+      return Color((Random().nextDouble() * 0xFFFFFF).toInt()).withValues(alpha: 1.0);
     }
   }
-
-
 
   /// Prefixes a hash sign if [leadingHashSign] is set to `true` (default is `true`).
   String toHex({bool leadingHashSign = true}) => '${leadingHashSign ? '#' : ''}'
