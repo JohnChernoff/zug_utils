@@ -184,8 +184,8 @@ class ZugUtils {
           color: disabled ? Colors.grey : glow ? Colors.yellowAccent : Colors.white,
           colorBlendMode: BlendMode.modulate,
           image: buttDir != null
-            ? AssetImage("assets/imgs/buttons/$buttDir/$name.$imgType")
-            : AssetImage("assets/imgs/buttons/$name.$imgType")
+            ? AssetImage("$path/$buttDir/$name.$imgType")
+            : AssetImage("$path/$name.$imgType")
       ));
 
   static Widget buttonCmd(String name, VoidCallback? onTap, {glow = false, disabled = false, VoidCallback? onDoubleTap,
