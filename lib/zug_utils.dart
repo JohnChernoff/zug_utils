@@ -24,6 +24,14 @@ class ScreenDim {
 }
 
 class ZugUtils {
+
+  static T? enumFromString<T extends Enum>(List<T> values, String? name) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return null;
+  }
+
   static Future<Config> getIniConfig(String assetPath) {
     return rootBundle.loadString(assetPath).then((value) => Config.fromString(value));
   }
