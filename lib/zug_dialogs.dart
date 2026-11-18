@@ -52,8 +52,8 @@ class ZugDialogs {
   }
 
   static void popDialog<T extends Object>(BuildContext ctx, Key? key, [T? result]) {
-    Navigator.of(ctx).pop(result);
     currentDialogs.remove(key);
+    Navigator.of(ctx).pop(result);
   }
 
   static Future<bool> popup(String txt, { String imgFile = "" } ) async {
@@ -271,12 +271,8 @@ class _CancellableDialogState extends State<CancellableDialog> {
     return DialogListener<bool?>(
         listenable: widget.canceller,
         listener: (before, after) {
-          //print("Cancelling?");
-          //print(ZugDialogs.currentDialogs);
-          //print(widget.dialog.key);
           if (ZugDialogs.currentDialogs.contains(widget.dialog.key) && before == null && after != null) {
-            //print("Cancelling dialog....");
-            ZugDialogs.popDialog(context,widget.key);
+            ZugDialogs.popDialog(context, widget.dialog.key);   // was widget.key
           }
         },
         builder: (context) => widget.dialog
@@ -425,20 +421,16 @@ abstract class TimedDialog extends StatefulWidget {
   final bool showTime;
   final int milliseconds;
   final int framerate;
-  bool timeOut = false;
-  Future<dynamic>? countThread;
 
-  TimedDialog(this.milliseconds,this.showTime, {this.framerate = 1000, super.key});
+  const TimedDialog(this.milliseconds,this.showTime, {this.framerate = 1000, super.key});
 
-  void cancel() {
-    timeOut = true;
-    countThread?.timeout(const Duration(milliseconds: 50));
-  }
 }
 
 abstract class TimedDialogState extends State<TimedDialog> {
   int timeRemaining = 0;
   bool countingDown = false;
+  bool timeOut = false;
+  Future<dynamic>? countThread;
 
   @override
   void initState() { //print("Millis: ${widget.milliseconds}");
@@ -450,14 +442,19 @@ abstract class TimedDialogState extends State<TimedDialog> {
     });
   }
 
+  void cancel() {
+    timeOut = true;
+    countThread?.timeout(const Duration(milliseconds: 50));
+  }
+
   Future<void> countdown() async { //print("Counting down");
     while (timeRemaining > 0) {
-      widget.countThread = Future.delayed(Duration(milliseconds: widget.framerate)).then((value) {
+      countThread = Future.delayed(Duration(milliseconds: widget.framerate)).then((value) {
         if (countingDown) {
           setState(() { timeRemaining -= widget.framerate; });
         }
       });
-      await widget.countThread;
+      await countThread;
     } //countingDown = false;
   }
 
@@ -468,7 +465,7 @@ abstract class TimedDialogState extends State<TimedDialog> {
   }
 
   bool checkTime() {
-    if (widget.timeOut || (countingDown && timeRemaining <= 0)) {
+    if (timeOut || (countingDown && timeRemaining <= 0)) {
       Navigator.pop(context,null);
       return true;
     }
@@ -488,7 +485,7 @@ class WidgetSelectDialog extends TimedDialog {
   final String prompt;
   final Offset sizeFactor;
   final List<Widget> widgets;
-  WidgetSelectDialog(this.prompt, this.widgets, this.axisCount,
+  const WidgetSelectDialog(this.prompt, this.widgets, this.axisCount,
       {seconds = 0, showTime = false, this.buffer = 8, this.sizeFactor = const Offset(1, 1), this.color = Colors.white, this.backgroundColor = Colors.black, super.key}) : super(seconds * 1000, showTime);
 
   @override
@@ -510,7 +507,7 @@ class _WidgetSelectState extends TimedDialogState {
         final double dialogHeight = MediaQuery.of(context).size.height * w.sizeFactor.dy;
         bool portrait = dialogWidth <= dialogHeight;
         TextStyle textStyle = TextStyle(
-            backgroundColor: w.backgroundColor.withOpacity(1),
+            backgroundColor: w.backgroundColor.withValues(alpha: 1),
             color: w.color,
             decoration: TextDecoration.none
         );
@@ -560,7 +557,7 @@ class WidgetDim {
 
 abstract class AnimationDialog extends TimedDialog {
   final double sizeFactor;
-  AnimationDialog(milliseconds, {this.sizeFactor = 1, framerate = 0, showTime = false, super.key}) : super(milliseconds, showTime, framerate : framerate > 0 ? framerate : milliseconds);
+  const AnimationDialog(milliseconds, {this.sizeFactor = 1, framerate = 0, showTime = false, super.key}) : super(milliseconds, showTime, framerate : framerate > 0 ? framerate : milliseconds);
 }
 
 abstract class AnimationDialogState extends TimedDialogState {
