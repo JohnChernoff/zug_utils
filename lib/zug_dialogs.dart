@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 class DialogListener<T> extends StatefulWidget {
   const DialogListener({
@@ -70,7 +71,8 @@ class ZugDialogs {
     });
   }
 
-  static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, String? confirmStr, String? cancelStr, String? imgFile } ) async {
+  static Future<bool> confirm(String txt, { ValueNotifier<bool?>? canceller, int? seconds,
+    String? confirmStr, String? cancelStr, String? imgFile } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
     UniqueKey key = UniqueKey(); currentDialogs.add(key);
@@ -78,7 +80,8 @@ class ZugDialogs {
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
-          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, confirmStr: confirmStr, cancelStr: cancelStr, key: key);
+          Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, confirmStr: confirmStr,
+              cancelStr: cancelStr, seconds: seconds, key: key);
           return Center(
               child: canceller != null ? CancellableDialog(dialog,canceller) : dialog);
         }).then((ok) => ok ?? false)
@@ -291,31 +294,62 @@ class _CancellableDialogState extends State<CancellableDialog> {
   }
 }
 
-class ConfirmDialog extends StatelessWidget {
+class ConfirmDialog extends StatefulWidget {
   final String txt;
-  final String? imageFilename;
-  final String? confirmStr;
-  final String? cancelStr;
-  const ConfirmDialog(this.txt, {this.imageFilename, this.confirmStr, this.cancelStr, super.key});
+  final String? imageFilename, confirmStr, cancelStr;
+  final int? seconds;
+  const ConfirmDialog(this.txt, {this.imageFilename, this.confirmStr, this.cancelStr, this.seconds, super.key});
+
+  @override
+  State<ConfirmDialog> createState() => _ConfirmDialogState();
+}
+
+class _ConfirmDialogState extends State<ConfirmDialog> {
+  Timer? _timer;
+  late int _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.seconds ?? 0;
+    if (_remaining > 0) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
+        setState(() => _remaining--);
+        if (_remaining <= 0) {
+          t.cancel();
+          ZugDialogs.popDialog(context, widget.key, false);   // fallback if the server never closes it
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final total = widget.seconds ?? 0;
     return SimpleDialog(
       children: [
-        imageFilename == null
+        widget.imageFilename == null
             ? const SizedBox.shrink()
-            : Image.asset("assets/images/$imageFilename"),
-        Center(child: Text(txt)),
+            : Image.asset("assets/images/${widget.imageFilename}"),
+        Center(child: Text(total > 0 ? "${widget.txt}  (${_remaining}s)" : widget.txt)),
+        if (total > 0)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: LinearProgressIndicator(value: _remaining / total),
+          ),
         SimpleDialogOption(
-            onPressed: () { //print("OK dialog option....");
-              ZugDialogs.popDialog(context, key, true);
-            },
-            child: Text(confirmStr ?? 'OK')),
+            onPressed: () => ZugDialogs.popDialog(context, widget.key, true),
+            child: Text(widget.confirmStr ?? 'OK')),
         SimpleDialogOption(
-            onPressed: () { //print("Cancel dialog option....");
-              ZugDialogs.popDialog(context, key, false);
-            },
-            child: Text(cancelStr ?? 'Cancel')),
+            onPressed: () => ZugDialogs.popDialog(context, widget.key, false),
+            child: Text(widget.cancelStr ?? 'Cancel')),
       ],
     );
   }
