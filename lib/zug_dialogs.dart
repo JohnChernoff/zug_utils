@@ -53,13 +53,13 @@ class ZugDialogs {
 
   static void popDialog<T extends Object>(BuildContext ctx, Key? key, [T? result]) {
     currentDialogs.remove(key);
-    Navigator.of(ctx).pop(result);
+    if (ModalRoute.of(ctx)?.isCurrent ?? false) Navigator.of(ctx).pop(result);
   }
 
   static Future<bool> popup(String txt, { String imgFile = "" } ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -74,22 +74,21 @@ class ZugDialogs {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return false;
     UniqueKey key = UniqueKey(); currentDialogs.add(key);
-    return showDialog(
+    return showDialog<bool>(
         barrierDismissible: false,
         context: ctx,
         builder: (BuildContext context) {
           Widget dialog = ConfirmDialog(txt, imageFilename: imgFile, confirmStr: confirmStr, cancelStr: cancelStr, key: key);
           return Center(
               child: canceller != null ? CancellableDialog(dialog,canceller) : dialog);
-        }).then((ok)  {
-      return ok ?? false;
-    });
+        }).then((ok) => ok ?? false)
+        .whenComplete(() => currentDialogs.remove(key));
   }
 
   static Future<dynamic> getValue(ValueDialog valueDialog) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -102,7 +101,7 @@ class ZugDialogs {
   static Future<String> getString(String prompt,String defTxt) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return "";
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -115,7 +114,7 @@ class ZugDialogs {
   static Future<int> getIcon(String prompt, List<Icon> iconList) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -128,7 +127,7 @@ class ZugDialogs {
   static Future<dynamic> getItem(String prompt, List<dynamic> itemList, List<String> fieldList, String actionString, {double sizeFactor = 1} ) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return 0;
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -142,7 +141,7 @@ class ZugDialogs {
       {bool showTime = false, int seconds = 0, Offset sizeFactor = const Offset(1,1), Alignment alignment = Alignment.center, Color color = Colors.white, Color backgroundColor = Colors.black}) async {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return null;
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -157,7 +156,7 @@ class ZugDialogs {
   static Future<void> showAnimationDialog (AnimationDialog dial, {Alignment alignment = Alignment.center}) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -170,7 +169,7 @@ class ZugDialogs {
   static Future<void> showClickableDialog(Widget widget) {
     BuildContext? ctx = _navigatorKey?.currentContext;
     if (ctx == null) return Future(() => null);
-    UniqueKey key = UniqueKey(); currentDialogs.add(key);
+    //UniqueKey key = UniqueKey(); currentDialogs.add(key);
     return showDialog(
         context: ctx,
         builder: (BuildContext context) {
@@ -265,6 +264,18 @@ class CancellableDialog extends StatefulWidget {
 }
 
 class _CancellableDialogState extends State<CancellableDialog> {
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.canceller.value != null) {          // already resolved before we were built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ZugDialogs.currentDialogs.contains(widget.dialog.key)) {
+          ZugDialogs.popDialog(context, widget.dialog.key);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -410,7 +421,7 @@ class ItemSelectDialog extends StatelessWidget {
     return Row(
         children:
         List.generate(fieldList.length, (index) => Text(
-            "${fieldList.elementAt(index)}: data[fieldList.elementAt(index)")
+            "${fieldList.elementAt(index)}: ${data[fieldList.elementAt(index)]}")
         )
     );
   }
@@ -429,7 +440,6 @@ abstract class TimedDialog extends StatefulWidget {
 abstract class TimedDialogState extends State<TimedDialog> {
   int timeRemaining = 0;
   bool countingDown = false;
-  bool timeOut = false;
   Future<dynamic>? countThread;
 
   @override
@@ -442,13 +452,8 @@ abstract class TimedDialogState extends State<TimedDialog> {
     });
   }
 
-  void cancel() {
-    timeOut = true;
-    countThread?.timeout(const Duration(milliseconds: 50));
-  }
-
   Future<void> countdown() async { //print("Counting down");
-    while (timeRemaining > 0) {
+    while (countingDown && timeRemaining > 0) {
       countThread = Future.delayed(Duration(milliseconds: widget.framerate)).then((value) {
         if (countingDown) {
           setState(() { timeRemaining -= widget.framerate; });
@@ -464,12 +469,15 @@ abstract class TimedDialogState extends State<TimedDialog> {
     super.dispose();
   }
 
+  bool _closing = false;
   bool checkTime() {
-    if (timeOut || (countingDown && timeRemaining <= 0)) {
-      Navigator.pop(context,null);
-      return true;
+    if (!_closing && ((countingDown && timeRemaining <= 0))) {
+      _closing = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop(null);
+      });
     }
-    return false;
+    return _closing;
   }
 
   int secondsRemaining() {
